@@ -4,6 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <utility>
+#include "token.cpp"
 using namespace std;
 
 bool isDigit(char ch){
@@ -24,7 +25,7 @@ bool isOperator(char ch){
   return find(operator_symbols.begin(), operator_symbols.end(), ch) != operator_symbols.end();
 }
 
-pair<bool, string> check_identifier(string input){
+pair<bool, token> check_identifier(string input){
   int states[2][3] = {{1, -1, -1}, {1, 1, 1}};
   int i=0;
 
@@ -44,52 +45,52 @@ pair<bool, string> check_identifier(string input){
     }else if (ch =='_'){
       col = 2;
     }else{
-      return {false, "Error >> Invalid Character. Identifier can not have character '" + string(1, ch) + "'."};
+      return {false, token("Error", string("Error >> Invalid Character. Identifier can not have character '") + ch + "'.")};
     }
 
     state = states[state][col];
 
     if (state==-1){
-      return {false, string("Error >> Invalid Identifier. Identifier can not start with '") + ch + "'."};
+      return {false, token("Error", string("Error >> Invalid Identifier. Identifier can not start with '") + ch + "'.")};
     }
     i+=1;
   }
 
   if (state == FINAL_STATE){
-    return {true, string("<ID: ") + input + ">"};
+    return {true, token("ID", input)};
   }else{
-    return {false, "Error >> Invalid Identifier."};
+    return {false, token("Error", "Error >> Invalid Identifier.")};
   }
 }
 
-pair <bool, string> check_integer(string input){
+pair <bool, token> check_integer(string input){
   if (input.empty()){
-    return {false, "Error >> Empty input for integer."};
+    return {false, token("Error", "Error >> Empty input for integer.")};
   }
 
   for (char ch : input){
     if (!isDigit(ch)){
-      return {false, string("Error >> Invalid Character. Integer can not have character '") + ch + "'."};
+      return {false, token("Error", string("Error >> Invalid Character. Integer can not have character '") + ch + "'.")};
     }
   }
 
-  return {true, string("<INT: ") + input + ">"};
+  return {true, token("INT", input)};
 }
 
-pair <bool, string> check_operator(string input){
+pair <bool, token> check_operator(string input){
   if (input.empty()){
-    return {false, "Error >> Empty input for operator."};
+    return {false, token("Error", "Error >> Empty input for operator.")};
   }
 
   for (char ch: input){
     if (!isOperator(ch)){
-      return {false, string("Error >> Invalid Character. Operator can not have character '")+ ch + "'."};
+      return {false, token("Error", string("Error >> Invalid Character. Operator can not have character '") + ch + "'.")};
     }
   }
-  return {true,input};
+  return {true, token("OP", input)};
 }
 
-pair <bool, string> check_string(string input){
+pair <bool, token> check_string(string input){
   // State table:
   // state 0: expect opening quote
   // state 1: inside string
@@ -129,22 +130,22 @@ pair <bool, string> check_string(string input){
     }
 
     if (col == -1){
-      return {false, string("Error >> Invalid String. Invalid character '") + ch + "'."};
+      return {false, token("Error", string("Error >> Invalid String. Invalid character '") + ch + "'.")};
     }
 
     state = states[state][col];
     if (state == -1){
-      return {false, string("Error >> Invalid String. Invalid character '") + ch + "'."};
+      return {false, token("Error", string("Error >> Invalid String. Invalid character '") + ch + "'.")};
     }
 
     i++;
   }
 
   if (state == FINAL_STATE){
-    return {true, string("<STRING: ") + input + ">"};
+    return {true, token("STR", input)};
   }
 
-  return {false, string("Error >> Invalid String.")};
+  return {false, token("Error", "Error >> Invalid String.")};
 }
 
 bool check_whitespace(string input){
@@ -228,19 +229,19 @@ bool check_comment(string input){
   return state == FINAL_STATE;
 }
 
-pair <bool, string> check_punctuation(string input){
+pair <bool, token> check_punctuation(string input){
   if (input.empty()){
-    return {false, "Error>> Empty input for punctuation."};
+    return {false, token("Error", "Error>> Empty input for punctuation.")};
   }
   
   char ch = input[0];
   if (ch == '(' || ch == ')' || ch == ';' || ch == ','){
-    return {true, input};
+    return {true, token("PUNCT", input)};
   }
-  return {false, "Error>> Invalid punctuation."};
+  return {false, token("Error", "Error>> Invalid punctuation.")};
 }
 
-pair <bool, string> check_keyword(string input){
+pair <bool, token> check_keyword(string input){
   vector<string> keywords = {
     "let", "where", "true", "false", "not", "fn", "ls", "gr", "ge", 
     "aug", "le", "nil", "dummy", "or", "in", "eq", "ne", "and", 
@@ -252,14 +253,14 @@ pair <bool, string> check_keyword(string input){
   
   for (const string& keyword : keywords){
     if (lower_input == keyword){
-      return {true, input};
+      return {true, token("KEYWORD", input)};
     }
   }
-  return {false, "Error>> Not a keyword."};
+  return {false, token("Error", "Error>> Not a keyword.")};
 }
 
-pair <bool, vector<string>> tokenize(string input){
-  vector<string> tokens;
+pair <bool, vector<token>> tokenize(string input){
+  vector<token> tokens;
   int i = 0;
   int length = input.length();
   int line = 1;
@@ -271,55 +272,55 @@ pair <bool, vector<string>> tokenize(string input){
   };
 
   while (i < length){
-    string token = "";
+    string tok = "";
     int token_start_line = line;
     char ch = input[i];
 
     if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'){
-      append(ch, token);
+      append(ch, tok);
       i++;
       while (i < length && (input[i] == ' ' || input[i] == '\t' || input[i] == '\n' || input[i] == '\r')){
-        append(input[i], token);
+        append(input[i], tok);
         i++;
       }
-      check_whitespace(token);
+      check_whitespace(tok);
       continue;
     }
 
     if (ch == '/' && i + 1 < length && input[i + 1] == '/'){
-      append(ch, token);
+      append(ch, tok);
       i++;
       while (i < length && input[i] != '\n' && input[i] != '\r'){
-        append(input[i], token);
+        append(input[i], tok);
         i++;
       }
       if (i < length){
-        append(input[i], token);
+        append(input[i], tok);
         i++;
       }
-      check_comment(token);
+      check_comment(tok);
       continue;
     }
 
     // 1) Keywords / Identifiers
     if (isLetter(ch)){
-      append(ch, token);
+      append(ch, tok);
       i++;
       while (i < length && (isLetter(input[i]) || isDigit(input[i]) || input[i] == '_')){
-        append(input[i], token);
+        append(input[i], tok);
         i++;
       }
-      pair<bool, string> keyword_result = check_keyword(token);
+      pair<bool, token> keyword_result = check_keyword(tok);
       if (keyword_result.first){
         tokens.push_back(keyword_result.second);
       }else{
-        pair<bool, string> identifier_result = check_identifier(token);
+        pair<bool, token> identifier_result = check_identifier(tok);
         if (identifier_result.first){
           tokens.push_back(identifier_result.second);
         } else {
-          cerr << identifier_result.second << " at line " << token_start_line << endl;
+          cerr << identifier_result.second.value << " at line " << token_start_line << endl;
           error = true;
-          continue;
+          return make_pair(error, tokens);
         }
       }
       continue;
@@ -327,95 +328,96 @@ pair <bool, vector<string>> tokenize(string input){
 
     // 2) Integers (consume possible identifier-like tail to report single error)
     if (isDigit(ch)){
-      append(ch, token);
+      append(ch, tok);
       i++;
 
       if (i < length && (input[i] == '_' || isLetter(input[i]))){
         while (i < length && (isLetter(input[i]) || isDigit(input[i]) || input[i] == '_')){
-          append(input[i], token);
+          append(input[i], tok);
           i++;
         }
 
         // Mixed token starting with digit (e.g. "1_x") -> produce a clearer error and return an INVALID token
-        cerr << "Error >> Invalid token. Identifier cannot start with a digit: '" << token << "' at line " << token_start_line << endl;
+        cerr << "Error >> Invalid token. Identifier cannot start with a digit: '" << tok << "' at line " << token_start_line << endl;
         error = true;
-        continue;
+        return make_pair(error, tokens);
       }
 
       while (i < length && isDigit(input[i])){
-        append(input[i], token);
+        append(input[i], tok);
         i++;
       }
-      pair<bool, string> integer_result = check_integer(token);
+      pair<bool, token> integer_result = check_integer(tok);
       if (integer_result.first){
         tokens.push_back(integer_result.second);
       } else {
-        cerr << integer_result.second << " at line " << token_start_line << endl;
+        cerr << integer_result.second.value << " at line " << token_start_line << endl;
         error = true;
+        return make_pair(error, tokens);
       }
       continue;
     }
 
     // 3) Operators (skip quote characters so strings are still recognized)
     if (isOperator(ch) && ch != '"' && ch != '\''){
-      append(ch, token);
+      append(ch, tok);
       i++;
       while (i < length && isOperator(input[i]) && input[i] != '/' && input[i] != '\''){
-        append(input[i], token);
+        append(input[i], tok);
         i++;
       }
-      pair<bool, string> operator_result = check_operator(token);
+      pair<bool, token> operator_result = check_operator(tok);
       if (operator_result.first){
         tokens.push_back(operator_result.second);
       } else {
-        cerr << operator_result.second << " at line " << token_start_line << endl;
+        cerr << operator_result.second.value << " at line " << token_start_line << endl;
         error = true;
-        continue;
+        return make_pair(error, tokens);
       }
       continue;
     }
 
     // 4) Strings
     if (ch == '"'){
-      append(ch, token);
+      append(ch, tok);
       i++;
       while (i < length){
         if (input[i] == '\\' && i + 1 < length){
-          append(input[i], token);
+          append(input[i], tok);
           i++;
-          append(input[i], token);
+          append(input[i], tok);
           i++;
         } else if (input[i] == '"'){
-          append(input[i], token);
+          append(input[i], tok);
           i++;
           break;
         } else {
-          append(input[i], token);
+          append(input[i], tok);
           i++;
         }
       }
-      pair<bool, string> string_result = check_string(token);
+      pair<bool, token> string_result = check_string(tok);
       if (string_result.first){
         tokens.push_back(string_result.second);
       } else {
-        cerr << string_result.second << " at line " << token_start_line << endl;
+        cerr << string_result.second.value << " at line " << token_start_line << endl;
         error = true;
-        continue;
+        return make_pair(error, tokens);
       }
       continue;
     }
 
     // 5) Punctuation
     if (ch == '(' || ch == ')' || ch == ';' || ch == ','){
-      append(ch, token);
+      append(ch, tok);
       i++;
-      pair<bool, string> punct = check_punctuation(token);
+      pair<bool, token> punct = check_punctuation(tok);
       if (punct.first){
         tokens.push_back(punct.second);
       } else {
-        cerr << punct.second << " at line " << token_start_line << endl;
+        cerr << punct.second.value << " at line " << token_start_line << endl;
         error = true;
-        continue;
+        return make_pair(error, tokens);
       }
       continue;
     }
@@ -450,13 +452,13 @@ int main(int argc, char* argv[]){
   }
   inputFile.close();
 
-  pair<bool, vector<string>> result = tokenize(allInput);
+  pair<bool, vector<token>> result = tokenize(allInput);
   bool error = result.first;
-  vector<string> tokens = result.second;
+  vector<token> tokens = result.second;
 
   if(!error){ 
-    for (const string& token : tokens){
-      cout<<token<<endl;
+    for (const token& token : tokens){
+      cout<<"<"<<token.type<<":"<<token.value<<">"<<endl;
     }
   }
  
