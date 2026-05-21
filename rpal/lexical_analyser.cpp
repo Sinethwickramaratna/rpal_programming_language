@@ -4,7 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <utility>
-#include "token.cpp"
+#include "token.h"
 using namespace std;
 
 bool isDigit(char ch){
@@ -90,62 +90,64 @@ pair <bool, token> check_operator(string input){
   return {true, token("OP", input)};
 }
 
-pair <bool, token> check_string(string input){
-  // State table:
-  // state 0: expect opening quote
-  // state 1: inside string
-  // state 2: after backslash (escape)
-  // state 3: final (after closing quote)
-  int states[4][5] = {
-    {1, -1, -1, -1, -1},
-    {-1, 2, -1, 1, 3},
-    {-1, -1, 1, -1, -1},
-    {-1, -1, -1, -1, -1}
-  };
+pair<bool, token> check_string(string input) {
+    // Columns: 0=quote("), 1=backslash(\), 2=valid_escape_char(t,n,\,"), 3=regular_char, 4=other
+    int states[4][5] = {
+        { 1, -1, -1, -1, -1},  // State 0: start, only opening quote valid
+        { 3,  2, -1,  1, -1},  // State 1: inside string, await chars or closing quote
+        {-1, -1,  1, -1, -1},  // State 2: after backslash, only valid escape chars
+        {-1, -1, -1, -1, -1}   // State 3: final/accepting state (closed quote)
+    };
 
-  int state = 0;
-  int i = 0;
-  int length = input.length();
-  int FINAL_STATE = 3;
+    int FINAL_STATE = 3;
+    int state = 0;
+    int length = input.length();
+    int i = 0;
 
-  while (i < length){
-    char ch = input[i];
-    int col = -1;
+    while (i < length) {
+        char ch = input[i];
+        int col = -1;
 
-    if (state == 0){
-      if (ch == '"') col = 0;
-    } else if (state == 1){
-      if (ch == '\\'){
-        col = 1; // escape
-      } else if (ch == '"'){
-        col = 4; // closing quote
-      } else if (ch == '(' || ch == ')' || ch == ';' || ch == ',' || ch == ' ' ||
-                 isLetter(ch) || isDigit(ch) || (isOperator(ch) && ch != '"' && ch != '\'')){
-        col = 3; // regular content
-      }
-    } else if (state == 2){
-      if (ch == 't' || ch == 'n' || ch == '\\' || ch == '\''){
-        col = 2; // valid escape
-      }
+        if (state == 0) {
+            if (ch == '\"'|| ch == '\'')         col = 0;  // opening quote
+            // anything else is invalid at start
+
+        } else if (state == 1) {
+            if      (ch == '\"')    col = 0;
+            else if (ch == '\'')    col = 0;
+            else if (ch == '\\')    col = 1;
+            else if (ch == '\n' || ch == '\r')  col = -1;  // ← explicit newline rejection
+            else if (ch == '('  || ch == ')'  || ch == ';' ||
+                    ch == ','  || ch == ' '  ||
+                    isLetter(ch)  || isDigit(ch) || isOperator(ch))
+                                    col = 3;
+        } else if (state == 2) {
+            // Valid escape characters after a backslash
+            if (ch == 't' || ch == 'n' || ch == '\\' || ch == '\"')
+                                    col = 2;  // valid escape → back to state 1
+            // anything else (e.g. \x, \() is invalid
+        }
+
+        if (col == -1) {
+            return {false, token("Error",
+                string("Error >> Invalid String. Invalid character '") + ch + "'.")};
+        }
+
+        state = states[state][col];
+
+        if (state == -1) {
+            return {false, token("Error",
+                string("Error >> Invalid String. Invalid character '") + ch + "'.")};
+        }
+
+        i++;
     }
 
-    if (col == -1){
-      return {false, token("Error", string("Error >> Invalid String. Invalid character '") + ch + "'.")};
+    if (state == FINAL_STATE) {
+        return {true, token("STR", input)};
+    } else {
+        return {false, token("Error", "Error >> Invalid String.")};
     }
-
-    state = states[state][col];
-    if (state == -1){
-      return {false, token("Error", string("Error >> Invalid String. Invalid character '") + ch + "'.")};
-    }
-
-    i++;
-  }
-
-  if (state == FINAL_STATE){
-    return {true, token("STR", input)};
-  }
-
-  return {false, token("Error", "Error >> Invalid String.")};
 }
 
 bool check_whitespace(string input){
@@ -362,47 +364,57 @@ pair <bool, vector<token>> tokenize(string input){
     if (isOperator(ch) && ch != '"' && ch != '\''){
       append(ch, tok);
       i++;
-      while (i < length && isOperator(input[i]) && input[i] != '/' && input[i] != '\''){
-        append(input[i], tok);
-        i++;
+      while (i < length && isOperator(input[i]) 
+            && input[i] != '/' 
+            && input[i] != '\''
+            && input[i] != '"'){   // ← add this guard
+          append(input[i], tok);
+          i++;
       }
       pair<bool, token> operator_result = check_operator(tok);
       if (operator_result.first){
-        tokens.push_back(operator_result.second);
+          tokens.push_back(operator_result.second);
       } else {
-        cerr << operator_result.second.value << " at line " << token_start_line << endl;
-        error = true;
-        return make_pair(error, tokens);
+          cerr << operator_result.second.value << " at line " << token_start_line << endl;
+          error = true;
+          return make_pair(error, tokens);
       }
       continue;
     }
 
     // 4) Strings
-    if (ch == '"'){
+    if (ch == '"' || ch == '\''){
+      char delimiter = ch;
       append(ch, tok);
       i++;
       while (i < length){
-        if (input[i] == '\\' && i + 1 < length){
-          append(input[i], tok);
-          i++;
-          append(input[i], tok);
-          i++;
-        } else if (input[i] == '"'){
-          append(input[i], tok);
-          i++;
-          break;
-        } else {
-          append(input[i], tok);
-          i++;
-        }
+          if (input[i] == '\n' || input[i] == '\r'){
+              // Unclosed string literal
+              cerr << "Error >> Unclosed string literal at line " << token_start_line << endl;
+              error = true;
+              return make_pair(error, tokens);
+          }
+          if (input[i] == '\\' && i + 1 < length){
+              append(input[i], tok);
+              i++;
+              append(input[i], tok);
+              i++;
+          } else if (input[i] == delimiter){
+              append(input[i], tok);
+              i++;
+              break;
+          } else {
+              append(input[i], tok);
+              i++;
+          }
       }
       pair<bool, token> string_result = check_string(tok);
       if (string_result.first){
-        tokens.push_back(string_result.second);
+          tokens.push_back(string_result.second);
       } else {
-        cerr << string_result.second.value << " at line " << token_start_line << endl;
-        error = true;
-        return make_pair(error, tokens);
+          cerr << string_result.second.value << " at line " << token_start_line << endl;
+          error = true;
+          return make_pair(error, tokens);
       }
       continue;
     }
@@ -428,39 +440,4 @@ pair <bool, vector<token>> tokenize(string input){
   }
 
   return make_pair(error, tokens);
-}
-
-int main(int argc, char* argv[]){
-  if (argc < 2){
-    cerr<< "Error >> Missing filename. \n";
-    cerr << "Usage: " << argv[0] << " <source_file>" << endl;
-    return 1;
-  }
-
-  string filename = argv[1];
-
-  ifstream inputFile(filename);
-  if (!inputFile.is_open()){
-    cout<<"Error: Could not open file "<<filename<<endl;
-    return 1;
-  }
-  
-  string line;
-  string allInput = "";
-  while (getline(inputFile, line)){
-    allInput += line + "\n";
-  }
-  inputFile.close();
-
-  pair<bool, vector<token>> result = tokenize(allInput);
-  bool error = result.first;
-  vector<token> tokens = result.second;
-
-  if(!error){ 
-    for (const token& token : tokens){
-      cout<<"<"<<token.type<<":"<<token.value<<">"<<endl;
-    }
-  }
- 
-  return 0;
 }

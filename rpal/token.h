@@ -1,4 +1,8 @@
+#ifndef TOKEN_CPP
+#define TOKEN_CPP
+
 #include <iostream>
+#include <string>
 using namespace std;
 
 class token{
@@ -11,3 +15,5 @@ class token{
       value = v;
     }
 };
+
+#endif
