@@ -76,7 +76,7 @@ struct Token {
             case STR:      return strVal;
             case BOOL:     return boolVal ? "true" : "false";
             case NIL:      return "nil";
-            case DUMMY:    return "dummy";
+            case DUMMY:    return "";
             case NAME:     return strVal;
             case GAMMA:    return "gamma";
             case BETA:     return "beta";
@@ -556,7 +556,9 @@ struct CSEMachine {
                 Token* marker = stkPop();
                 if (marker->type != Token::ENV_MARKER)
                     throw runtime_error("Rule 5: expected env marker on stack");
-                currentEnv = envStore.get(marker->envId)->parent;
+                // Restore the saved environment stored in marker->intVal
+                // marker->envId is the newEnv id; marker->intVal holds the previous currentEnv
+                currentEnv = marker->intVal;
                 stkPush(value);
                 continue;
             }
@@ -645,22 +647,22 @@ struct CSEMachine {
 
             // Save the current environment to restore later
             int savedEnv = currentEnv;
-            
+
             // ── CRITICAL: Update currentEnv BEFORE executing body ──
             // The lambda body needs to execute with currentEnv = newEnvId
             // so that parameter lookups find the bindings in the new env.
             currentEnv = newEnvId;
-            
+
             Token* marker = Token::makeEnvMarker(newEnvId);
+            // Store the previous environment inside the marker so Rule 5
+            // can restore it when the env-exit is handled.
+            marker->intVal = savedEnv;
             stkPush(marker);
 
-            // ── Push env-exit marker onto control ──
-            // The marker will be popped AFTER all delta body tokens are executed
-            // Since we load delta and THEN push marker, the marker ends up below
-            // the delta tokens (remember push_back adds to end, pop_back removes end).
-            // So execution order is: delta tokens first, then marker.
+            // Push env-exit marker onto control so it will be popped after
+            // the delta body tokens have executed.
             ctrlPush(marker);
-            
+
             loadDelta(rator->deltaIdx);
             return;
         }

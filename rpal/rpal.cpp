@@ -10,6 +10,15 @@
 #include "cse_machine.cpp"
 using namespace std;
 
+static inline string trim(const string &s) {
+  size_t start = 0;
+  while (start < s.size() && isspace((unsigned char)s[start])) ++start;
+  if (start == s.size()) return string();
+  size_t end = s.size() - 1;
+  while (end > start && isspace((unsigned char)s[end])) --end;
+  return s.substr(start, end - start + 1);
+}
+
 void printTree(Node* node,string dotes=""){
   if (node->value != ""){
     if (node->label.length()==0){
@@ -76,7 +85,8 @@ int main(int argc, char* argv[]){
       }
 
       Token* result = runCSE(st);
-      cout << result->toString() << endl;
+      string out = trim(result->toString());
+      if (!out.empty()) cout << out;
       delete ast;
       delete st;
 
