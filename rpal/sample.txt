@@ -1,1 +1,2 @@
-(fn n.n<0 -> -n|n)(-3)
+let Add x y = x+y
+in Print(2 @Add 3 @Add 4)

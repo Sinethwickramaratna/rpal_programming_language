@@ -75,22 +75,8 @@ int main(int argc, char* argv[]){
           printTree(st);
       }
 
-      vector<Delta> cse_deltas = getDeltas(st);
-      cout << "CSE Machine Output (deltas):" << endl;
-      for (int i = 0; i < (int)cse_deltas.size(); i++) {
-        cout << "delta_" << i << ": [ ";
-        for (const Token& tok : cse_deltas[i]) {
-            if (tok.isList) {
-                cout << "[ ";
-                for (const string& s : tok.list)
-                    cout << s << " ";
-                cout << "] ";
-            } else {
-                cout << tok.value << " ";
-            }
-        }
-        cout << "]" << endl;
-      }
+      Token* result = runCSE(st);
+      cout << result->toString() << endl;
       delete ast;
       delete st;
 
