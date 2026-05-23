@@ -1,0 +1,5 @@
+let Check(N) = 
+  N gr 0 -> 'Positive'
+  | N eq 0 -> 'Zero'
+  | 'Negative'
+ in Print(Check(-4))

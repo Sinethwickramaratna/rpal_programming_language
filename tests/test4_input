@@ -1,0 +1,4 @@
+let rec Fact(N) =
+    N eq 0 -> 1
+  | N * Fact((N-1))
+in Print (Fact(5))

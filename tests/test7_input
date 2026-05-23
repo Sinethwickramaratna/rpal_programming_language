@@ -1,0 +1,5 @@
+let NumCheck(N) =
+  (N-((N/2)*2)) eq 0 -> 'Even'
+  | 'Odd'
+ in Print(NumCheck(16))
+

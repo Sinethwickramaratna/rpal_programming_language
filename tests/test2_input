@@ -1,0 +1,5 @@
+let Greatest(A, B, C) = 
+  (A ge B) & (A ge C) -> A
+  | (B ge A) & (B ge C) -> B
+  | C
+ in Print(Greatest(15, 12, 10))

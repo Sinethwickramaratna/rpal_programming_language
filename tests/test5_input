@@ -1,0 +1,8 @@
+let rec Rev(Num, Acc) =
+    Num eq 0 -> Acc
+  | Rev(Num/10, (Acc*10) + (Num - ((Num/10)*10)))
+in 
+  let Palindrome(N) =
+    N eq Rev(N, 0) -> 'Palindrome'
+    | 'Not Palindrome'
+   in Print(Palindrome(12321))

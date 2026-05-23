@@ -1,0 +1,4 @@
+let rec Sum(N) = 
+  N eq 0 -> 0
+  | N + Sum(N-1)
+ in Print(Sum(10))

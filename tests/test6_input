@@ -1,0 +1,10 @@
+let rec Rev(Num, Acc) =
+    Num eq 0 -> Acc
+  | Rev(Num/10, (Acc*10) + (Num - ((Num/10)*10)))
+in
+  let IsPal(N) = (N eq Rev(N, 0))
+  in let rec PalList(I, U) =
+      I gr U -> nil
+    | IsPal(I) -> (PalList(I+1, U) aug I)
+    | PalList(I+1, U)
+  in Print(PalList(10, 150))

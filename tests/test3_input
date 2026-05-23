@@ -1,0 +1,8 @@
+let rec Fib(N) = 
+    N eq 0 -> 0
+     | N eq 1 -> 1
+     | Fib(N-1) + Fib(N-2)
+in let rec FibPrint(X,Y) = 
+    X gr Y -> nil
+    | (FibPrint(X,Y-1) aug Fib(Y))
+     in Print(FibPrint(5,10))  
