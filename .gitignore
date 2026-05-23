@@ -6,3 +6,4 @@ rpal_parse_table.html
 rpal_select_sets_original.html
 run_tests.bat
 tests/
+run_tests.sh
