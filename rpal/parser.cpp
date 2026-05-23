@@ -6,10 +6,13 @@
 #include "tree.h"
 using namespace std;
 
+// Parser for the RPAL phrase structure grammar.
+// Each method below mirrors one grammar level and builds the corresponding AST.
 class Parser{
   public:
     explicit Parser(const vector<token> tokens) : tokens_(move(tokens)), pos_(0) {}
   
+    // Parse the full program and return the root AST node.
     Node* parse(){
       Node* tree = E();
       if(!isEnd()){
@@ -67,9 +70,14 @@ class Parser{
               checkValue("(");
     }
 
+    // E -> let D in E | fn Vb+ . E | Ew
+    // This is the top-level expression rule, so it also handles the two
+    // function/definition forms that rewrite into lambda and definition trees.
     Node* E(){
       if (checkValue("let")){
         consume();
+        // let D in E becomes a tree with the definition on the left and body on
+        // the right. The standardizer later turns this into a gamma/lambda form.
         Node* def_Node = D();
 
         expectValue("in");
@@ -89,6 +97,7 @@ class Parser{
           throw runtime_error("Parse error>> Expected identifier or '(' after 'fn' but found '" + (isEnd() ? "EOF" : peek().value) + "'.");
         }
 
+        // fn Vb+ . E becomes a nested lambda chain, one lambda per parameter.
         vector<Node*> vbs;
         do {
           vbs.push_back(Vb());
@@ -111,6 +120,8 @@ class Parser{
       return Ew();
     }
     
+    // Ew -> T where Dr | T
+    // This attaches an optional where-clause to an ordinary tuple expression.
     Node* Ew(){
       Node* t_node = T();
 
@@ -126,6 +137,9 @@ class Parser{
       return t_node;
     }
 
+    // T -> Ta (, Ta)+ | Ta
+    // Tuples are represented with a comma node, which the standardizer later
+    // turns into the canonical tuple form.
     Node* T(){
       Node* ta_node = Ta();
 
@@ -144,6 +158,8 @@ class Parser{
       return tau_node;
     }
 
+    // Ta -> Ta aug Tc | Tc
+    // aug is left-associative, so repeated aug operations build a left-leaning tree.
     Node* Ta(){
       Node* node = Tc();
 
@@ -159,6 +175,9 @@ class Parser{
       return node;
     }
 
+    // Tc -> B -> Tc | Tc | B -> Tc | Tc
+    // The conditional operator is right-associative, so the recursive call is on
+    // the then/else branches rather than on the left side.
     Node* Tc(){
       Node* b_node = B();
 
@@ -181,6 +200,8 @@ class Parser{
       return b_node;
     }
 
+    // B -> B or Bt | Bt
+    // Boolean OR is left-associative and sits above AND in precedence.
     Node* B(){
       Node* node = Bt();
 
@@ -198,6 +219,8 @@ class Parser{
       return node;
     }
 
+    // Bt -> Bt & Bs | Bs
+    // Boolean AND is left-associative and binds tighter than OR.
     Node* Bt(){
       Node* node = Bs();
 
@@ -214,6 +237,8 @@ class Parser{
       return node;
     }
 
+    // Bs -> not Bp | Bp
+    // not is a unary boolean operator, so it consumes one operand.
     Node* Bs(){
       if(checkValue("not")){
         consume();
@@ -224,6 +249,9 @@ class Parser{
       return Bp();
     }
 
+    // Bp -> relational comparison | A
+    // This handles the comparison operators and otherwise falls back to
+    // arithmetic expressions.
     Node* Bp(){
       Node* left = A();
 
@@ -247,6 +275,9 @@ class Parser{
       return left;
     }
 
+    // A -> + At | - At | A + At | A - At | At
+    // Unary + is a no-op, unary - becomes a neg node, and binary +/-. are
+    // parsed as left-associative arithmetic chains.
     Node* A(){
       if(checkValue("+")){
         consume();
@@ -275,6 +306,8 @@ class Parser{
       return node;
     }
 
+    // At -> At * Af | At / Af | Af
+    // Multiplication and division are left-associative.
     Node* At(){
       Node* node = Af();
 
@@ -291,6 +324,9 @@ class Parser{
       return node;
     }
 
+    // Af -> Ap ** Af | Ap
+    // Exponentiation is right-associative, so the recursive call stays on the
+    // right-hand side.
     Node* Af(){
       Node* ap_node = Ap();
       if (checkValue("**")){
@@ -307,6 +343,8 @@ class Parser{
       return ap_node;
     }
 
+    // Ap -> Ap @ <IDENTIFIER> R | R
+    // @ is used for explicit function application with an identifier selector.
     Node* Ap(){
       Node* node = R();
 
@@ -327,6 +365,9 @@ class Parser{
       return node;
     }
 
+    // R -> R Rn | Rn
+    // Adjacent rands form gamma application chains, so this method keeps adding
+    // application nodes while the next token still starts a valid atomic form.
     Node* R(){
       Node* node = Rn();
 
@@ -342,6 +383,8 @@ class Parser{
       return node;
     }
 
+    // Rn -> identifiers, literals, parenthesized expressions, and dummy.
+    // These are the atomic leaves of the expression grammar.
     Node* Rn(){
       if (checkType("ID")){
         token t = consume();
@@ -370,7 +413,7 @@ class Parser{
 
       if (checkValue("nil")){
         consume();
-        return new Node("nill");
+        return new Node("nil");
       }
 
       if (checkValue("dummy")){
@@ -388,6 +431,9 @@ class Parser{
       throw runtime_error("Parse erro >> Unexpected token '"+(isEnd()? "EOF": peek().value)+"'.");
     }
 
+    // D -> Da within D | Da
+    // Definitions may be nested with within, so this rule recursively builds a
+    // binary tree that preserves the order of the original source.
     Node* D(){
       Node* da_node = Da();
 
@@ -405,6 +451,8 @@ class Parser{
       return da_node;
     }
 
+    // Da -> Dr and Dr and Dr ... | Dr
+    // and combines multiple simultaneous definitions into one node.
     Node* Da(){
       Node* node = Dr();
       if(!checkValue("and")) return node;
@@ -418,6 +466,8 @@ class Parser{
       return and_node;
     }
 
+    // Dr -> rec Db | Db
+    // rec is a unary definition form that marks a recursive binding.
     Node* Dr(){
       if(checkValue("rec")){
         consume();
@@ -430,6 +480,10 @@ class Parser{
       return Db();
     }
 
+    // Db handles the three definition shapes:
+    //   1. ( D )
+    //   2. V = E
+    //   3. <IDENTIFIER> Vb+ = E   (function form)
     Node* Db(){
       if(checkValue("(")){
         consume();
@@ -444,8 +498,10 @@ class Parser{
 
       token firstId = consume();
 
-      // Function form: id Vb+ = E
+      
       if (inFirstVb()){
+        // Function definition form is rewritten into fcn_form so the
+        // standardizer can later turn it into a nested lambda chain.
         Node* idNode = new Node("ID", firstId.value);
 
         vector<Node*> vbs;
@@ -464,11 +520,13 @@ class Parser{
         return fcn_node;
       }
 
-      // Variable list form: id (, id)* = E
-      // firstId is already consumed — seed Vl manually
+      
+      
       Node* lhs;
       if(checkValue(",")){
-        // tuple binding: (id, id, ...)
+        // A comma-separated identifier list on the left-hand side becomes a
+        // tuple pattern, which the standardizer later converts into a tuple bind.
+        
         Node* comma_node = new Node(",");
         comma_node->addChild(new Node("ID", firstId.value));
         while(checkValue(",")){
@@ -490,6 +548,9 @@ class Parser{
       return eq_node;
     }
 
+    // Vb -> <IDENTIFIER> | ( Vl ) | ()
+    // Vb is used in function parameter positions and can be a single variable,
+    // a tuple pattern, or the empty pattern.
     Node* Vb(){
       if (checkType("ID")){
         token t = consume();
@@ -512,6 +573,8 @@ class Parser{
       throw runtime_error("Parse error >> Expected identifier or '(' in Vb, got '"+ (isEnd() ? "EOF" : peek().value) + "'.");
     }
 
+    // Vl -> <IDENTIFIER> list ,
+    // Vl parses a non-empty identifier list used inside tuple parameter patterns.
     Node* Vl(){
       Node* node = new Node(",");
       token first = expectType("ID");
@@ -523,10 +586,11 @@ class Parser{
           node->addChild(new Node("ID", next.value));
       }
 
-      // Single variable — no need for the ',' wrapper
+      
       if (node->children.size() == 1)
           return node->children[0];
 
       return node;
     }    
 };
+

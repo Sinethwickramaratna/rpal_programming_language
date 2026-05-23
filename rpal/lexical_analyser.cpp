@@ -90,13 +90,15 @@ pair <bool, token> check_operator(string input){
   return {true, token("OP", input)};
 }
 
+// Validate a quoted string token and preserve escape sequences exactly as written.
+// The lexer does not interpret escapes yet; the evaluator decodes them later.
 pair<bool, token> check_string(string input) {
-    // Columns: 0=quote("), 1=backslash(\), 2=valid_escape_char(t,n,\,"), 3=regular_char, 4=other
+    
     int states[4][5] = {
-        { 1, -1, -1, -1, -1},  // State 0: start, only opening quote valid
-        { 3,  2, -1,  1, -1},  // State 1: inside string, await chars or closing quote
-        {-1, -1,  1, -1, -1},  // State 2: after backslash, only valid escape chars
-        {-1, -1, -1, -1, -1}   // State 3: final/accepting state (closed quote)
+        { 1, -1, -1, -1, -1},  
+        { 3,  2, -1,  1, -1},  
+        {-1, -1,  1, -1, -1},  
+        {-1, -1, -1, -1, -1}   
     };
 
     int FINAL_STATE = 3;
@@ -109,23 +111,23 @@ pair<bool, token> check_string(string input) {
         int col = -1;
 
         if (state == 0) {
-            if (ch == '\"'|| ch == '\'')         col = 0;  // opening quote
-            // anything else is invalid at start
+            if (ch == '\"'|| ch == '\'')         col = 0;  
+            
 
         } else if (state == 1) {
             if      (ch == '\"')    col = 0;
             else if (ch == '\'')    col = 0;
             else if (ch == '\\')    col = 1;
-            else if (ch == '\n' || ch == '\r')  col = -1;  // ← explicit newline rejection
+            else if (ch == '\n' || ch == '\r')  col = -1;  
             else if (ch == '('  || ch == ')'  || ch == ';' ||
                     ch == ','  || ch == ' '  ||
                     isLetter(ch)  || isDigit(ch) || isOperator(ch))
                                     col = 3;
         } else if (state == 2) {
-            // Valid escape characters after a backslash
+            
             if (ch == 't' || ch == 'n' || ch == '\\' || ch == '\"')
-                                    col = 2;  // valid escape → back to state 1
-            // anything else (e.g. \x, \() is invalid
+                                    col = 2;  
+            
         }
 
         if (col == -1) {
@@ -261,6 +263,9 @@ pair <bool, token> check_keyword(string input){
   return {false, token("Error", "Error>> Not a keyword.")};
 }
 
+// Walk through the source text left to right and produce one token stream.
+// This function is responsible for skipping whitespace/comments and for
+// attaching line numbers to any lexical error that needs to be reported.
 pair <bool, vector<token>> tokenize(string input){
   vector<token> tokens;
   int i = 0;
@@ -304,7 +309,7 @@ pair <bool, vector<token>> tokenize(string input){
       continue;
     }
 
-    // 1) Keywords / Identifiers
+    
     if (isLetter(ch)){
       append(ch, tok);
       i++;
@@ -328,7 +333,7 @@ pair <bool, vector<token>> tokenize(string input){
       continue;
     }
 
-    // 2) Integers (consume possible identifier-like tail to report single error)
+    
     if (isDigit(ch)){
       append(ch, tok);
       i++;
@@ -339,7 +344,7 @@ pair <bool, vector<token>> tokenize(string input){
           i++;
         }
 
-        // Mixed token starting with digit (e.g. "1_x") -> produce a clearer error and return an INVALID token
+        
         cerr << "Error >> Invalid token. Identifier cannot start with a digit: '" << tok << "' at line " << token_start_line << endl;
         error = true;
         return make_pair(error, tokens);
@@ -360,14 +365,14 @@ pair <bool, vector<token>> tokenize(string input){
       continue;
     }
 
-    // 3) Operators (skip quote characters so strings are still recognized)
+    
     if (isOperator(ch) && ch != '"' && ch != '\''){
       append(ch, tok);
       i++;
       while (i < length && isOperator(input[i]) 
             && input[i] != '/' 
             && input[i] != '\''
-            && input[i] != '"'){   // ← add this guard
+            && input[i] != '"'){   
           append(input[i], tok);
           i++;
       }
@@ -382,14 +387,14 @@ pair <bool, vector<token>> tokenize(string input){
       continue;
     }
 
-    // 4) Strings
+    
     if (ch == '"' || ch == '\''){
       char delimiter = ch;
       append(ch, tok);
       i++;
       while (i < length){
           if (input[i] == '\n' || input[i] == '\r'){
-              // Unclosed string literal
+              
               cerr << "Error >> Unclosed string literal at line " << token_start_line << endl;
               error = true;
               return make_pair(error, tokens);
@@ -419,7 +424,7 @@ pair <bool, vector<token>> tokenize(string input){
       continue;
     }
 
-    // 5) Punctuation
+    
     if (ch == '(' || ch == ')' || ch == ';' || ch == ','){
       append(ch, tok);
       i++;
@@ -434,7 +439,7 @@ pair <bool, vector<token>> tokenize(string input){
       continue;
     }
 
-    // Unknown single character -> report and advance
+    
     cerr << "Error >> Unknown character '" << ch << "' at line " << token_start_line << endl;
     error = true;
   }

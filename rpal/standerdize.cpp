@@ -1,6 +1,8 @@
 // standardize.cpp
 // Transforms an AST into a Standardized Tree (ST).
 // Call: Node* st = standardize(copyTree(ast));
+// This file applies the RPAL standardization rules that rewrite source-level
+// syntax into the canonical tree shape expected by the CSE machine.
 
 #include <string>
 #include <vector>
@@ -33,7 +35,7 @@ Node* standardize(Node* n) {
     // ── Leaf nodes: nothing to do ─────────────────────────────────────────
     if (lbl == "ID"   || lbl == "INT" || lbl == "STR" ||
         lbl == "true" || lbl == "false" || lbl == "nil" ||
-        lbl == "nill" || lbl == "dummy" || lbl == "()")
+        lbl == "dummy" || lbl == "()")
         return n;
 
     // ── Rule 1: let ───────────────────────────────────────────────────────
@@ -192,7 +194,7 @@ Node* standardize(Node* n) {
       // Build right-associative lambda chain from Vn down to V1
       // Parameters are at indices 1 .. size-2  (exclude P at 0 and E at back)
       Node* result = body;
-      for (int i = (int)n->children.size() - 2; i >= 1; i--) {  // ✅ stop at size-2
+      for (int i = (int)n->children.size() - 2; i >= 1; i--) {  //  stop at size-2
           Node* V   = standardize(n->children[i]);
           Node* lam = mkNode("lambda");
           lam->addChild(V);

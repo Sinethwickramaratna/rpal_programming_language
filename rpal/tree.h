@@ -17,7 +17,7 @@ struct Node{
       delete child;
     }
   }
-
+  
   void addChild(Node* child) {
     children.push_back(child);
   }
