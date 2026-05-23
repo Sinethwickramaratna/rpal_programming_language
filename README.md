@@ -140,6 +140,30 @@ On Windows:
 If you want to compare against a reference output, redirect the result to a file
 and use `diff` or a similar comparison tool.
 
+## Running Tests
+
+The repository includes helper scripts for running the sample test suite and
+comparing each `*_input` file against its matching `*_expected` file.
+
+### Ubuntu / Linux
+
+Run:
+
+```bash
+bash run_tests.sh
+```
+
+### Windows
+
+Run:
+
+```bat
+run_tests.bat
+```
+
+Both scripts expect the compiled `rpal20` binary to be available in `rpal/`.
+They print `PASS` / `FAIL` for each test case and report a summary at the end.
+
 ## Example Output
 
 For an input that evaluates to the integer `15`, the program prints:
