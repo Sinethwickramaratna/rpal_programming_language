@@ -256,8 +256,29 @@ struct Token
             return "eta";
         case ENV_MARKER:
             return "e" + to_string(envId);
-        case LAMBDA:
+        case LAMBDA: {
+            // For lambdas captured as closures, print a more descriptive form
+            // that shows the parameter name(s) and the environment id. This
+            // makes output like `[lambda closure: x: 2]` instead of the
+            // terse `lambda(d1)` which is less helpful for users.
+            string names;
+            if (isNary())
+            {
+                for (size_t i = 0; i < params.size(); ++i)
+                {
+                    if (i)
+                        names += ",";
+                    names += params[i];
+                }
+            }
+            else
+            {
+                names = param;
+            }
+            if (deltaIdx >= 0)
+                return string("[lambda closure: ") + names + ": " + to_string(deltaIdx + 1) + "]";
             return "lambda(d" + to_string(deltaIdx) + ")";
+        }
         case CLOSURE:
             return "closure";
         case DELTA_REF:
@@ -623,7 +644,11 @@ static Token *applyBuiltin(const string &name, Token *arg)
     if (name == "Istruth")
         return Token::makeBool(arg->type == Token::BOOL);
     if (name == "Istuple")
-        return Token::makeBool(arg->type == Token::TUPLE);
+    {
+        // Treat `nil` as an empty tuple for compatibility with programs
+        // that expect empty tuples to behave like tuples of order 0.
+        return Token::makeBool(arg->type == Token::TUPLE || arg->type == Token::NIL);
+    }
     if (name == "Isfunction")
         return Token::makeBool(arg->type == Token::LAMBDA || arg->type == Token::PARTIAL);
     if (name == "Isdummy")
@@ -636,6 +661,8 @@ static Token *applyBuiltin(const string &name, Token *arg)
                                (arg->type == Token::TUPLE && arg->tupleElems.empty()));
     if (name == "Order")
     {
+        if (arg->type == Token::NIL)
+            return Token::makeInt(0);
         if (arg->type != Token::TUPLE)
             throw runtime_error("Order: not a tuple");
         return Token::makeInt(arg->tupleElems.size());

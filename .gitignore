@@ -4,5 +4,5 @@ ProgrammingProject.pdf
 rpal_ll1_grammar_and_parse_table.html
 rpal_parse_table.html
 rpal_select_sets_original.html
-./rpal/rpal20.exe
-./rpal/rpal20
+run_tests.bat
+tests/
